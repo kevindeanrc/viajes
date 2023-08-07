@@ -1,0 +1,268 @@
+//using RecuperatorioF1.Datos;
+//using RecuperatorioF1.Negocio;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Windows.Forms;
+
+//CURSO – LEGAJO – APELLIDO – NOMBRE
+
+namespace TUP_PI_Recu_Viajes
+{
+    public partial class frmViaje : Form
+    {
+        private AccesoDatos oBD;
+        private List<Viaje> lViajes;
+        public frmViaje()
+        {
+            InitializeComponent();
+            oBD = new AccesoDatos();
+            lViajes = new List<Viaje>();  
+        }
+
+        private void frmViaje_Load(object sender, EventArgs e)
+        {
+            cargarCombo();
+            cargarLista();
+            habilitar(false);
+        }
+        private void cargarCombo()
+        {
+            DataTable tabla = oBD.consultarBD("SELECT * FROM Transportes");
+            cboTransporte.DataSource = tabla;
+            cboTransporte.DisplayMember = "nombreTransporte";
+            cboTransporte.ValueMember = "idTransporte";
+            cboTransporte.DropDownStyle = ComboBoxStyle.DropDownList;
+        }
+
+       
+        private bool validarDatos()
+        {
+            if(txtCodigo.Text == "")
+            {
+                MessageBox.Show("Debe ingresar un codigo");
+                txtCodigo.Focus();  
+                return false;
+            }
+            if (txtDestino.Text == "")
+            {
+                MessageBox.Show("Debe ingresar un destino");
+                txtDestino.Focus();
+                return false;
+            }
+            if (cboTransporte.SelectedIndex == -1)
+            {
+                MessageBox.Show("Debe ingresar un transporte");
+                cboTransporte.Focus();
+                return false;
+            }
+            if (!rbtInternacional.Checked && !rbtNacional.Checked)
+            {
+                MessageBox.Show("Debe ingresar un tipo");
+                rbtNacional.Focus();
+                return false;
+            }
+
+            ////Esto si pide algo de fecha
+
+            //if (DateTime.Today.Year - dtpFecha.Value.Year > 10)
+            //{
+            //    MessageBox.Show("No puede registrar una mascota mayoe a 10 años...");
+            //    dtpFecha.Focus();
+            //    return false;
+            //}
+
+
+            return true;
+           
+        }
+        private bool existe(Viaje nuevo)
+        {
+            for (int i = 0; i < lViajes.Count; i++)
+            {
+                if (lViajes[i].pCodigo == nuevo.pCodigo)
+                    return true;
+            }
+            return false;
+        }
+        private void cargarLista()
+        {
+            lViajes.Clear();
+            lstViajes.Items.Clear();
+            DataTable tabla= oBD.consultarBD("Select * FROM Viajes");
+
+            foreach (DataRow fila in tabla.Rows)
+            {
+                Viaje v = new Viaje();
+                v.pCodigo = Convert.ToInt32(fila["codigo"]);
+                v.pDestino = Convert.ToString(fila["destino"]);
+                v.pFecha = Convert.ToDateTime(fila["fecha"]);
+                v.pTipo = Convert.ToInt32(fila["tipo"]);
+                v.pTransporte = (int)(fila["transporte"]);
+                lViajes.Add(v);
+                lstViajes.Items.Add(v.ToString());
+            }
+
+        }
+        private void btnGrabar_Click(object sender, EventArgs e)
+        {
+            if (validarDatos())
+            {
+                Viaje v = new Viaje();
+                v.pCodigo = int.Parse(txtCodigo.Text);
+                v.pDestino = txtDestino.Text;
+                v.pTransporte = Convert.ToInt32(cboTransporte.SelectedValue);
+                if (rbtNacional.Checked)
+                    v.pTipo = 1;
+                else 
+                    v.pTipo = 2;
+                v.pFecha = dtpFecha.Value;
+
+                if (!existe(v))
+                {
+                    string insertSQL = "INSERT INTO Viajes VALUES (@codigo,@destino,@transporte,@tipo,@fecha)";
+
+                    List<Parametro> lParametros = new List<Parametro>();
+                    lParametros.Add(new Parametro("@codigo", v.pCodigo));
+                    lParametros.Add(new Parametro("@destino", v.pDestino));
+                    lParametros.Add(new Parametro("@transporte", v.pTransporte));
+                    lParametros.Add(new Parametro("@tipo", v.pTransporte));
+                    lParametros.Add(new Parametro("@fecha", v.pFecha));
+
+                    if (oBD.actualizarBD(insertSQL,lParametros) > 0)
+                    {
+                        MessageBox.Show("Se inserto con exito un nuevo viaje!");
+                        cargarLista();
+                    }
+
+                }
+                else
+                {
+                    MessageBox.Show("Ese viaje ya existe!");
+
+                    // esto es update, no poner si no hay boton editar
+
+                    string upDateSQL = "UPDATE Viajes SET destino=@destino, transporte=@transporte, tipo=@tipo, fecha=@fecha   WHERE codigo=@codigo";
+
+                    List<Parametro> lParametros = new List<Parametro>();
+                    lParametros.Add(new Parametro("@codigo", v.pCodigo));
+                    lParametros.Add(new Parametro("@destino", v.pDestino));
+                    lParametros.Add(new Parametro("@transporte", v.pTransporte));
+                    lParametros.Add(new Parametro("@tipo", v.pTransporte));
+                    lParametros.Add(new Parametro("@fecha", v.pFecha));
+
+                    if (oBD.actualizarBD(upDateSQL, lParametros) > 0)
+                    {
+                        MessageBox.Show("Se modifico con exito el viaje seleccionado!");
+                        cargarLista();
+                    }
+
+                }
+                habilitar(false);
+
+            }
+           
+        }
+        private void cargarCampos(int posicion)
+        {
+            txtCodigo.Text = lViajes[posicion].pCodigo.ToString();
+            txtDestino.Text = lViajes[posicion].pDestino;
+            cboTransporte.SelectedValue = lViajes[posicion].pTransporte;
+                if (lViajes[posicion].pTipo == 1)
+                rbtNacional.Checked = true;
+            else
+                rbtInternacional.Checked = true;
+
+            dtpFecha.Value = lViajes[posicion].pFecha;
+
+        }
+
+
+
+
+
+        private void lstViajes_SelectedIndexChanged(object sender, EventArgs e)
+        {
+           cargarCampos(lstViajes.SelectedIndex);
+        }
+
+        private void btnSalir_Click(object sender, EventArgs e)
+        {
+            if (MessageBox.Show("¿Seguro que desea salir?", "Saliendo",
+                MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.Yes)
+                Close();
+        }
+
+        private void btnNuevo_Click(object sender, EventArgs e)
+        {
+            habilitar(true);
+            limpiar();
+            txtCodigo.Focus();
+        }
+        private void habilitar(bool v)
+        {
+            txtCodigo.Enabled = v;
+            txtDestino.Enabled = v;
+            cboTransporte.Enabled = v;
+            rbtInternacional.Enabled = v;
+            rbtNacional.Enabled = v;
+            dtpFecha.Enabled = v;
+            btnGrabar.Enabled = v;
+            btnNuevo.Enabled = !v;
+            btnSalir.Enabled = !v;
+            lstViajes.Enabled = !v;
+        }
+
+        private void limpiar()
+        {
+            txtCodigo.Text = "";
+            txtDestino.Text = "";
+            cboTransporte.SelectedIndex = -1;
+            rbtInternacional.Checked = false;
+            rbtNacional.Checked = false;
+            dtpFecha.Value = DateTime.Today;
+        }
+
+
+        //SI USAS ESTO TENES QUE USAR EL ACTUALIZAR DATOS SIN PARAMETROS
+        private void btnBorrar_Click(object sender, EventArgs e)
+        {
+            if (MessageBox.Show("Seguro de borrar este viaje?",
+               "BORRANDO", MessageBoxButtons.YesNo, MessageBoxIcon.Warning,
+               MessageBoxDefaultButton.Button2)
+               == DialogResult.Yes)
+            {
+                string consultaSQL = "DELETE FROM Viajes WHERE codigo=" + lViajes[lstViajes.SelectedIndex].pCodigo;
+                if (oBD.actualizarBD(consultaSQL) > 0)
+                {
+                    MessageBox.Show("Se eliminó con éxito el viaje...");
+                   cargarLista();
+                   limpiar();
+                }
+                else
+                {
+                    MessageBox.Show("No se pudo eliminar con éxito el viaje...");
+                }
+            }
+        }
+
+     
+
+        private void btcCancelar_Click(object sender, EventArgs e)
+        {
+                limpiar();
+                habilitar(false);           
+        }
+
+        private void btnEditar_Click(object sender, EventArgs e)
+        {
+            habilitar(true);
+            txtCodigo.Enabled = false;
+            txtCodigo.Focus();
+        }
+    }
+}
